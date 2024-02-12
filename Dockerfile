@@ -17,17 +17,16 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# If you're generating a fully static site (optional step)
-# RUN npm run export
-
 # Stage 2: Serving the application with Nginx
 FROM nginx:stable-alpine as production-stage
 
 # Copy the built app to the Nginx serve directory
-COPY --from=builder /app/out /usr/share/nginx/html
+# Adjust this line if you're not exporting to static HTML
+COPY --from=builder /app/.next/static /usr/share/nginx/html/_next/static
+COPY --from=builder /app/public /usr/share/nginx/html
 
-# For non-static sites, you might need to configure Nginx to forward requests to a Node.js server
-# For static sites, this setup can serve the exported static files directly
+# Copy a custom Nginx config if you have one
+# COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
 
