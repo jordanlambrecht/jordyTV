@@ -54,7 +54,7 @@ USER nextjs
 
 FROM nginx:stable-alpine as production-stage
 
-COPY - from=base /app/dist /usr/share/nginx/html/
+COPY - from=base /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
