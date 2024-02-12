@@ -1,64 +1,32 @@
-FROM node:18-alpine as base
-
-# Install dependencies only when needed
-FROM base AS deps
-
-RUN apk add --no-cache libc6-compat
+# Node.js build stage
+FROM node:18-alpine as builder
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
+# Install dependencies
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
+  elif [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; \
+  else echo "No lockfile found." && exit 1; \
   fi
 
-
-
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Build the application
 COPY . .
-
 RUN \
-  if [ -f yarn.lock ]; then yarn run build; \
+  if [ -f yarn.lock ]; then yarn build; \
   elif [ -f package-lock.json ]; then npm run build; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
-  else echo "Lockfile not found." && exit 1; \
+  elif [ -f pnpm-lock.yaml ]; then pnpm run build; \
+  else echo "No lockfile found." && exit 1; \
   fi
 
-# Production image, copy all the files and run next
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
+# Nginx stage to serve the built app
 FROM nginx:stable-alpine as production-stage
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-COPY --from=base /app/dist /usr/share/nginx/html
+# Copy a custom Nginx config if you have one
+# COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 80
-
-ENV PORT 80
-ENV HOSTNAME "0.0.0.0"
 
 CMD ["nginx", "-g", "daemon off;"]
