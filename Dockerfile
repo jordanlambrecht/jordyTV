@@ -1,4 +1,4 @@
-# Node.js build stage
+# Stage 1: Building the Next.js application
 FROM node:18-alpine as builder
 WORKDIR /app
 
@@ -11,21 +11,23 @@ RUN \
   else echo "No lockfile found." && exit 1; \
   fi
 
-# Build the application
+# Copy the rest of the application code
 COPY . .
-RUN \
-  if [ -f yarn.lock ]; then yarn build; \
-  elif [ -f package-lock.json ]; then npm run build; \
-  elif [ -f pnpm-lock.yaml ]; then pnpm run build; \
-  else echo "No lockfile found." && exit 1; \
-  fi
 
-# Nginx stage to serve the built app
+# Build the application
+RUN npm run build
+
+# If you're generating a fully static site (optional step)
+# RUN npm run export
+
+# Stage 2: Serving the application with Nginx
 FROM nginx:stable-alpine as production-stage
-COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy a custom Nginx config if you have one
-# COPY nginx.conf /etc/nginx/nginx.conf
+# Copy the built app to the Nginx serve directory
+COPY --from=builder /app/out /usr/share/nginx/html
+
+# For non-static sites, you might need to configure Nginx to forward requests to a Node.js server
+# For static sites, this setup can serve the exported static files directly
 
 EXPOSE 80
 
