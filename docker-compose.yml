@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   app:
-    image: ghcr.io/jordanlambrecht/jordytv/jordytv:develop
+    image: ghcr.io/jordanlambrecht/jordytv/jordytv
     restart: always
     ports:
       - "4242:80"
